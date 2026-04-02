@@ -23,7 +23,7 @@ import java.security.interfaces.RSAPublicKey;
 public class SecurityConfig {
     
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt.decoder(jwtDecoder()))
+                .jwt(jwt -> jwt.decoder(jwtDecoder))
                 .authenticationEntryPoint((request, response, authException) -> {
                     // Only enforce authentication on protected endpoints
                     if (request.getRequestURI().startsWith("/api/v1/prices")) {
