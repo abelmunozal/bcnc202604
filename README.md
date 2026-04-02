@@ -116,6 +116,25 @@ Una vez iniciada la aplicación, accede a:
 - **OpenAPI Docs**: http://localhost:8080/api-docs
 - **H2 Console**: http://localhost:8080/h2-console
 
+### 📮 Colección de Postman
+
+Para facilitar las pruebas de la API, se incluye una colección de Postman con todos los endpoints configurados:
+
+**Ubicación:** `/resources/BCNC-202604.postman_collection.json`
+
+**Cómo importar:**
+1. Abre Postman
+2. Click en **Import** (esquina superior izquierda)
+3. Selecciona el archivo `resources/BCNC-202604.postman_collection.json`
+4. La colección incluye:
+   - **Auth**: Endpoint para generar tokens JWT
+   - **Prices**: Endpoint para consultar precios (con autenticación)
+
+**Flujo de uso:**
+1. Ejecuta la petición **Auth** para obtener un token JWT
+2. Copia el token de la respuesta
+3. Usa el token en la petición **Prices** (header `Authorization: Bearer <token>`)
+
 ### Endpoint Principal
 
 **GET** `/api/v1/prices`
