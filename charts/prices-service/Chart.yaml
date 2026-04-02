@@ -1,0 +1,13 @@
+apiVersion: v2
+name: prices-service
+description: A Helm chart for Prices Service microservice
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - prices
+  - microservice
+  - spring-boot
+maintainers:
+  - name: BCNC
+    email: info@bcnc.com
