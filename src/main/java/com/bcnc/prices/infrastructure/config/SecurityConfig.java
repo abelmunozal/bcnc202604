@@ -37,12 +37,6 @@ public class SecurityConfig {
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.decoder(jwtDecoder))
-                .authenticationEntryPoint((request, response, authException) -> {
-                    // Only enforce authentication on protected endpoints
-                    if (request.getRequestURI().startsWith("/api/v1/prices")) {
-                        response.sendError(401, "Unauthorized");
-                    }
-                })
             );
 
         http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
