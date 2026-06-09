@@ -3,7 +3,6 @@ package com.bcnc.prices.infrastructure.adapter.in.rest;
 import com.bcnc.prices.application.port.in.GetApplicablePriceQuery;
 import com.bcnc.prices.domain.exception.PriceNotFoundException;
 import com.bcnc.prices.domain.model.Price;
-import com.bcnc.prices.infrastructure.adapter.in.rest.dto.ErrorResponse;
 import com.bcnc.prices.infrastructure.adapter.in.rest.dto.PriceResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Min;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -47,12 +47,12 @@ public class PriceController {
         @ApiResponse(
             responseCode = "404",
             description = "No price found for the given criteria",
-            content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            content = @Content(schema = @Schema(implementation = ProblemDetail.class))
         ),
         @ApiResponse(
             responseCode = "400",
             description = "Invalid request parameters",
-            content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            content = @Content(schema = @Schema(implementation = ProblemDetail.class))
         )
     })
     @GetMapping

@@ -109,7 +109,7 @@ class PriceControllerIntegrationTest {
                 .param("brandId", BRAND_ID.toString()))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.status", is(404)))
-            .andExpect(jsonPath("$.message", containsString("99999")))
+            .andExpect(jsonPath("$.detail", containsString("99999")))
             .andExpect(jsonPath("$.timestamp", notNullValue()));
     }
 
