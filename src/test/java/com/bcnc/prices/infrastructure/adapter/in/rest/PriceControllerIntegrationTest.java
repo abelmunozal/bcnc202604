@@ -115,13 +115,28 @@ class PriceControllerIntegrationTest {
     
     @Test
     @WithMockUser
-    @DisplayName("Test: Request with non-existent product should return 404")
+    @DisplayName("Test: Request with non-existent product should return 404 with an error body")
     void testPriceNotFound() throws Exception {
         mockMvc.perform(get("/api/v1/prices")
                 .param("applicationDate", "2020-06-14T10:00:00")
                 .param("productId", "99999")
                 .param("brandId", BRAND_ID.toString()))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status", is(404)))
+            .andExpect(jsonPath("$.message", containsString("99999")))
+            .andExpect(jsonPath("$.timestamp", notNullValue()));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("Test: Request with a non-positive productId should return 400")
+    void testNonPositiveProductId() throws Exception {
+        mockMvc.perform(get("/api/v1/prices")
+                .param("applicationDate", "2020-06-14T10:00:00")
+                .param("productId", "-1")
+                .param("brandId", BRAND_ID.toString()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status", is(400)));
     }
     
     @Test
