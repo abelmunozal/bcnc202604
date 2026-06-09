@@ -85,7 +85,7 @@ public class PriceController {
             price.startDate(),
             price.endDate(),
             price.price(),
-            price.curr()
+            price.currency()
         );
     }
 }
