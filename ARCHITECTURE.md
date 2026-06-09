@@ -1,250 +1,165 @@
-# Arquitectura Hexagonal - Prices Service
+# Architecture
 
-## 📐 Estructura del Proyecto
+The Prices Service is a small read-side microservice that answers one question: **given a
+product, a brand and an instant, which price applies?** Its design is driven by
+**Domain-Driven Design (DDD)** realised through a **Hexagonal (Ports & Adapters)** structure.
+This document explains the domain model first, then the structure, the quality attributes and
+the decisions behind them.
 
-```
-prices-service/
-├── src/main/java/com/bcnc/prices/
-│   ├── domain/                                    # ⬡ CAPA DE DOMINIO (CORE)
-│   │   ├── model/
-│   │   │   └── Price.java                        # Record inmutable (Java 21)
-│   │   └── repository/
-│   │       └── PriceRepository.java              # Puerto de salida (interface)
-│   │
-│   ├── application/                               # ⬡ CAPA DE APLICACIÓN
-│   │   ├── port/in/
-│   │   │   └── GetApplicablePriceQuery.java      # Puerto de entrada (use case)
-│   │   └── service/
-│   │       └── PriceQueryService.java            # Implementación del caso de uso
-│   │
-│   └── infrastructure/                            # ⬡ CAPA DE INFRAESTRUCTURA
-│       ├── adapter/
-│       │   ├── in/rest/                          # Adaptador REST (entrada)
-│       │   │   ├── PriceController.java
-│       │   │   ├── AuthController.java           # Endpoint de autenticación
-│       │   │   ├── GlobalExceptionHandler.java
-│       │   │   └── dto/
-│       │   │       ├── PriceResponse.java
-│       │   │       ├── ErrorResponse.java
-│       │   │       ├── TokenRequest.java         # DTO para solicitud de token
-│       │   │       └── TokenResponse.java        # DTO para respuesta de token
-│       │   └── out/persistence/                  # Adaptador JPA (salida)
-│       │       ├── PriceEntity.java
-│       │       ├── PriceMapper.java
-│       │       ├── JpaPriceRepository.java
-│       │       └── PriceRepositoryAdapter.java
-│       ├── config/
-│       │   ├── ApplicationConfig.java            # Inyección de dependencias
-│       │   ├── SecurityConfig.java               # Spring Security + JWT
-│       │   └── OpenApiConfig.java                # Swagger/OpenAPI
-│       └── security/
-│           └── JwtTokenService.java              # Servicio de generación de tokens JWT
-│
-├── src/main/resources/
-│   ├── application.yml                           # Configuración (Virtual Threads)
-│   ├── schema.sql                                # DDL de base de datos
-│   └── data.sql                                  # Datos de prueba
-│
-├── src/test/java/
-│   └── com/bcnc/prices/infrastructure/adapter/in/rest/
-│       └── PriceControllerIntegrationTest.java   # 5 tests de integración
-│
-├── charts/prices-service/                        # Helm Charts para Kubernetes
-├── Dockerfile                                    # Imagen Docker
-├── docker-compose.yml                            # Orquestación local
-└── build.gradle.kts                              # Gradle con Kotlin DSL
-```
+> Every significant decision has an [Architecture Decision Record](docs/adr). They are
+> referenced inline as `ADR-NNNN`.
 
-## 🎯 Principios SOLID Aplicados
+## 1. Domain (DDD)
 
-### 1. **Single Responsibility Principle (SRP)**
-- `Price.java`: Solo representa el modelo de dominio
-- `PriceQueryService.java`: Solo ejecuta la lógica de búsqueda de precios
-- `PriceController.java`: Solo maneja peticiones HTTP
-- `PriceRepositoryAdapter.java`: Solo adapta la persistencia
+### Bounded context
 
-### 2. **Open/Closed Principle (OCP)**
-- Nuevos adaptadores pueden añadirse sin modificar el dominio
-- Nuevos casos de uso se implementan como nuevos puertos
+A single bounded context — **Pricing**. It owns the rule that resolves the *applicable price*
+of a product for a brand (sales chain) at a moment in time. There are no other contexts in this
+exercise, so there is no context map; in the wider Inditex landscape this context would sit
+behind a published REST contract consumed by order/logistics contexts.
 
-### 3. **Liskov Substitution Principle (LSP)**
-- `PriceRepositoryAdapter` implementa `PriceRepository` sin alterar el contrato
-- Mock implementations pueden sustituir implementaciones reales en tests
+### Ubiquitous language
 
-### 4. **Interface Segregation Principle (ISP)**
-- `GetApplicablePriceQuery`: Interface específica para un caso de uso
-- `PriceRepository`: Interface mínima con un solo método
+| Term | Meaning in the model |
+|------|----------------------|
+| **Price** | A rate of a *brand* for a *product*, valid within a date range, with a final amount and currency. |
+| **Brand** | A sales chain of the group (e.g. `1` = ZARA). |
+| **Price list** (`priceList`) | Identifier of the applicable tariff. |
+| **Priority** | Disambiguator: when ranges overlap, the **higher** priority wins. |
+| **Applicable price** | The single price in force for a (product, brand, instant). |
 
-### 5. **Dependency Inversion Principle (DIP)**
-- El dominio NO depende de la infraestructura
-- La infraestructura depende del dominio a través de interfaces (puertos)
-- `ApplicationConfig.java` inyecta las dependencias
+The code speaks this language: `Price`, `priceList`, `priority`, `PriceRepository`,
+`PriceNotFoundException`, `findApplicablePrice`.
 
-## 🔄 Flujo de Datos (Hexagonal)
+### Tactical patterns applied
 
-### Flujo de Autenticación JWT
+- **Value Object** — `Price` is immutable, has **no identity**, and validates its own
+  invariants (mandatory fields; `endDate` not before `startDate`). The database surrogate key
+  lives only in the JPA entity, never in the domain (ADR-0004).
+- **Repository (as a port)** — `PriceRepository` is an interface **in the domain**; the JPA
+  adapter implements it in infrastructure. This is simultaneously the DDD Repository pattern and
+  the hexagonal outbound port.
+- **Domain exception** — `PriceNotFoundException` models the "no applicable price" condition as
+  a domain concept, decoupled from HTTP (the REST adapter maps it to 404).
+- **Use case (inbound port)** — `GetApplicablePriceQuery` expresses the application's single
+  capability; `PriceQueryService` implements it depending only on the domain.
+
+### What we deliberately did *not* do
+
+DDD is applied with judgement, not by rote. This context is a single read model, so there are
+**no aggregates with behaviour, no domain events and no factories** — they would be ceremony
+without value here. The one real tension — *where the "highest priority wins" rule lives* — is
+resolved and documented in **ADR-0005**: the rule is realised as a read-optimised persistence
+query (a CQRS-style projection) rather than an in-memory domain service that would be dead code.
+If pricing became multi-factor, we would introduce an explicit `PriceSelectionPolicy` in the
+domain and revisit that ADR.
+
+## 2. Structure (Hexagonal / Ports & Adapters)
+
+Dependencies point inwards only. The domain knows nothing about Spring, JPA or HTTP; the
+boundary is **verified on every build** by ArchUnit (ADR-0010), not merely documented.
 
 ```
-[POST /auth/token] 
-    ↓
-[AuthController] (Adaptador REST - Público)
-    ↓
-[JwtTokenService] (Servicio de Seguridad)
-    ↓
-[KeyPair RSA] (Bean de Configuración)
-    ↓
-[JWT Token Generado] (Firmado con clave privada RSA)
-    ↓
-[Cliente recibe token válido por 1 hora]
+com.bcnc.prices
+├── domain                      # Core — pure Java, zero framework imports
+│   ├── model/Price             #   Value Object + invariants
+│   ├── repository/PriceRepository   #   Outbound port
+│   └── exception/PriceNotFoundException
+├── application                 # Use cases — depends only on the domain
+│   ├── port/in/GetApplicablePriceQuery   #   Inbound port
+│   └── service/PriceQueryService
+└── infrastructure              # Adapters & config — depends inwards only
+    ├── adapter/in/rest         #   REST inbound adapter (Controller, advice, DTOs)
+    ├── adapter/out/persistence #   JPA outbound adapter (Entity, Mapper, Repository)
+    ├── config                  #   Spring wiring, security, OpenAPI
+    └── security                #   JWT token service (dev-only — ADR-0008)
 ```
 
-### Flujo de Consulta de Precios (Autenticado)
+```mermaid
+flowchart LR
+    Client([API client])
+    subgraph Infrastructure
+        REST[REST adapter<br/>PriceController]
+        JPA[JPA adapter<br/>PriceRepositoryAdapter]
+        DB[(H2)]
+    end
+    subgraph Application
+        UC[PriceQueryService<br/>: GetApplicablePriceQuery]
+    end
+    subgraph Domain
+        PORT{{PriceRepository<br/>port}}
+        VO[Price<br/>Value Object]
+    end
 
-```
-[GET /api/v1/prices + JWT Token] 
-    ↓
-[Spring Security Filter] (Validación JWT con clave pública RSA)
-    ↓
-[PriceController] (Adaptador REST - Puerto de Entrada)
-    ↓
-[GetApplicablePriceQuery] (Puerto de Entrada - Interface)
-    ↓
-[PriceQueryService] (Caso de Uso - Aplicación)
-    ↓
-[PriceRepository] (Puerto de Salida - Interface)
-    ↓
-[PriceRepositoryAdapter] (Adaptador JPA - Puerto de Salida)
-    ↓
-[JpaPriceRepository] (Spring Data JPA)
-    ↓
-[H2 Database]
-```
-
-## 🧩 Desacoplamiento Total
-
-### Dominio (Core)
-- **Sin dependencias** de Spring, JPA, o cualquier framework
-- Solo Java puro (Records, interfaces)
-- Reglas de negocio encapsuladas
-
-### Aplicación
-- Orquesta casos de uso
-- Depende solo del dominio
-- No conoce detalles de infraestructura
-
-### Infraestructura
-- Implementa los puertos definidos por el dominio
-- Contiene toda la lógica técnica (REST, JPA, Security)
-- Puede ser reemplazada sin afectar el core
-
-## 🚀 Características Modernas
-
-- ✅ **Java 21** con Virtual Threads
-- ✅ **Records** para inmutabilidad
-- ✅ **Spring Boot 3.4** con las últimas optimizaciones
-- ✅ **Gradle Kotlin DSL** para configuración type-safe
-- ✅ **OAuth2 Resource Server** con JWT (RSA-256)
-- ✅ **Endpoint de autenticación** para generación de tokens JWT
-- ✅ **OpenAPI 3.0** con Swagger UI
-- ✅ **Spring Boot Actuator** para health checks
-- ✅ **Docker** y **Kubernetes** ready
-
-## 🔐 Seguridad JWT
-
-### Arquitectura de Autenticación
-
-La aplicación implementa un sistema de autenticación basado en **JWT (JSON Web Tokens)** con firma **RSA-256**:
-
-#### Componentes
-
-1. **SecurityConfig** (`infrastructure/config/`)
-   - Configura Spring Security como OAuth2 Resource Server
-   - Genera par de claves RSA (pública/privada) al inicio
-   - Define reglas de autorización por endpoint
-   - Configura JwtDecoder con clave pública
-
-2. **JwtTokenService** (`infrastructure/security/`)
-   - Servicio para generar tokens JWT
-   - Firma tokens con clave privada RSA
-   - Configura claims: issuer, subject, scope, exp, iat
-   - Tokens válidos por 1 hora
-
-3. **AuthController** (`infrastructure/adapter/in/rest/`)
-   - Endpoint público `POST /auth/token`
-   - Recibe username y genera token JWT
-   - Mock para desarrollo (sin validación de credenciales)
-
-#### Flujo de Seguridad
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. GENERACIÓN DE TOKEN                                      │
-├─────────────────────────────────────────────────────────────┤
-│ Cliente → POST /auth/token {"username": "test-user"}        │
-│ AuthController → JwtTokenService.generateToken()            │
-│ JwtTokenService → Firma JWT con clave privada RSA           │
-│ Cliente ← Token JWT válido por 1 hora                       │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│ 2. VALIDACIÓN DE TOKEN                                      │
-├─────────────────────────────────────────────────────────────┤
-│ Cliente → GET /api/v1/prices + Header: Authorization Bearer │
-│ SecurityFilterChain → Intercepta request                    │
-│ JwtDecoder → Valida firma con clave pública RSA             │
-│ JwtDecoder → Verifica expiración y claims                   │
-│ Si válido → Permite acceso al endpoint                      │
-│ Si inválido → 401 Unauthorized                              │
-└─────────────────────────────────────────────────────────────┘
+    Client -->|GET /api/v1/prices| REST
+    REST -->|inbound port| UC
+    UC -->|outbound port| PORT
+    JPA -. implements .-> PORT
+    JPA --> DB
+    UC --> VO
 ```
 
-#### Endpoints Públicos vs Protegidos
+Wiring note: `PriceQueryService` is **not** a Spring component; it is instantiated as a
+`@Bean` in `ApplicationConfig`, so the application layer stays framework-free. New use cases
+follow the same pattern (define the port in `application`, wire the implementation in config).
 
-**Públicos (sin autenticación):**
-- `/auth/**` - Generación de tokens
-- `/swagger-ui/**` - Documentación Swagger
-- `/api-docs/**` - OpenAPI docs
-- `/h2-console/**` - Consola H2
-- `/actuator/**` - Health checks
+### Request flow
 
-**Protegidos (requieren JWT):**
-- `/api/v1/prices/**` - Consulta de precios
+`GET /api/v1/prices` → `PriceController` (validates input) → `GetApplicablePriceQuery` →
+`PriceQueryService` → `PriceRepository` (port) → `PriceRepositoryAdapter` → Spring Data derived
+query with DB-side `LIMIT 1` → `PriceMapper` → `Price` → `PriceResponse`. No match → domain
+exception → RFC 7807 `404` (ADR-0007).
 
-#### Características de Seguridad
+## 3. SOLID, concretely
 
-- ✅ **Stateless**: No se almacenan sesiones en servidor
-- ✅ **RSA-256**: Algoritmo de firma asimétrica robusto
-- ✅ **Expiración**: Tokens válidos por 1 hora
-- ✅ **Claims estándar**: issuer, subject, exp, iat, scope
-- ✅ **Mock IDP**: Sin dependencias externas para desarrollo
+- **SRP** — `PriceController` handles HTTP only; `PriceQueryService` orchestrates the use case;
+  `PriceRepositoryAdapter` adapts persistence; `PriceMapper` translates entity↔domain.
+- **OCP** — new delivery or storage mechanisms are new adapters against existing ports; the
+  domain is untouched.
+- **LSP** — any `PriceRepository` implementation (JPA adapter, a test double) is substitutable
+  behind the port's contract.
+- **ISP** — ports are minimal and intent-revealing: `PriceRepository` exposes a single method;
+  `GetApplicablePriceQuery` exposes one use case.
+- **DIP** — the domain defines the abstraction (`PriceRepository`); infrastructure depends on
+  it. High-level policy does not depend on low-level detail. ArchUnit enforces this.
 
-## 📊 Resolución de Prioridades
+## 4. Quality attributes & trade-offs
 
-La lógica de negocio implementa:
-1. Búsqueda de precios por fecha, producto y marca
-2. Ordenación por prioridad DESC
-3. Selección del primer resultado (mayor prioridad)
+- **Performance / scalability** — the winning row is selected in the database (`LIMIT 1`) over a
+  composite index, so the application reads one row regardless of overlap (ADR-0002). For a
+  read-heavy, mostly-static catalogue the next steps would be a read-through cache and/or read
+  replicas.
+- **Correctness / determinism** — the "single result" is deterministic via a total ordering
+  (ADR-0003), covered by repository and integration tests.
+- **Observability** — Spring Boot Actuator exposes health/info/metrics; the container health
+  check uses `/actuator/health`.
+- **Security** — a JWT resource server is included as a dev-only extra with stable keys
+  (ADR-0008); it is out of the statement's scope and can be removed without touching the core.
+- **Time zones** — `LocalDateTime` per the statement; a global deployment would standardise on
+  UTC `Instant` (ADR-0006).
 
-```java
-@Query("SELECT p FROM PriceEntity p " +
-       "WHERE p.productId = :productId " +
-       "AND p.brandId = :brandId " +
-       "AND p.startDate <= :applicationDate " +
-       "AND p.endDate >= :applicationDate " +
-       "ORDER BY p.priority DESC")
-```
+## 5. Testing strategy
 
-## 🧪 Testing
+- **Domain unit tests** (`PriceTest`) — invariants of the Value Object, no Spring.
+- **Persistence slice** (`PriceRepositoryAdapterTest`, `@DataJpaTest`) — priority resolution and
+  boundary dates against the seeded data.
+- **End-to-end web tests** (`PriceControllerIntegrationTest`) — the five mandated scenarios as a
+  parameterised test, the real JWT auth flow, validation and RFC 7807 error bodies; monetary
+  values asserted as `BigDecimal`.
+- **Smoke test** (`ApplicationSmokeTest`) — boots the app on a random port and exercises the real
+  HTTP stack (actuator health + the protected endpoint with a real token).
+- **Production-fidelity showcase** (`PostgresPriceRepositoryShowcaseTest`) — runs the query against
+  a real PostgreSQL via Testcontainers; skipped where Docker is absent, so the H2 suite the
+  statement requires is unaffected.
+- **Architecture tests** (`HexagonalArchitectureTest`, ArchUnit) — the dependency rule.
 
-5 tests de integración que validan:
-- ✅ Test 1: 2020-06-14 10:00 → 35.50€ (Tarifa 1)
-- ✅ Test 2: 2020-06-14 16:00 → 25.45€ (Tarifa 2)
-- ✅ Test 3: 2020-06-14 21:00 → 35.50€ (Tarifa 1)
-- ✅ Test 4: 2020-06-15 10:00 → 30.50€ (Tarifa 3)
-- ✅ Test 5: 2020-06-16 21:00 → 38.95€ (Tarifa 4)
+CI (GitHub Actions) runs the full build/test on every push (Docker is available there, so the
+Testcontainers showcase executes) and validates the Helm chart with `helm lint`/`template`.
 
-Plus tests adicionales para:
-- Producto no encontrado (404)
-- Acceso sin autenticación (401)
-- Formato de fecha inválido (400)
-- Parámetros faltantes (400)
+## 6. Roadmap (what I would do next)
+
+1. Externalise the catalogue to a real datastore; add caching/read replicas for scale.
+2. Move time handling to UTC `Instant` with explicit zone conversion at the edges.
+3. Replace the dev JWT mock with an external IdP; source keys from a secret manager.
+4. Introduce a domain `PriceSelectionPolicy` if pricing becomes multi-factor (supersedes ADR-0005).
+5. Contract tests (e.g. Spring Cloud Contract) for the consumers in the logistics landscape.

@@ -1,156 +1,50 @@
 # Prices Service
 
-Microservicio REST desarrollado con **Spring Boot 3.4** y **Java 21** que gestiona precios de productos aplicando **Arquitectura Hexagonal** y principios **SOLID**.
+[![CI](https://github.com/abelmunozal/bcnc202604/actions/workflows/ci.yml/badge.svg)](https://github.com/abelmunozal/bcnc202604/actions/workflows/ci.yml)
 
-## 🏗️ Arquitectura
+A REST microservice (Spring Boot 3.4 / Java 21) that returns the **applicable price** of a
+product for a brand at a given instant. Built with **Domain-Driven Design** and a **Hexagonal
+(Ports & Adapters)** architecture.
 
-El proyecto sigue una **Arquitectura Hexagonal (Ports & Adapters)** con separación clara de responsabilidades:
+For the design rationale see **[ARCHITECTURE.md](ARCHITECTURE.md)** and the
+**[Architecture Decision Records](docs/adr)**.
 
-```
-com.bcnc.prices/
-├── domain/                          # Capa de Dominio (Core)
-│   ├── model/                       # Entidades de dominio puras
-│   │   └── Price.java              # Record inmutable sin dependencias
-│   └── repository/                  # Puertos de salida (interfaces)
-│       └── PriceRepository.java
-├── application/                     # Capa de Aplicación
-│   ├── port/in/                    # Puertos de entrada (casos de uso)
-│   │   └── GetApplicablePriceQuery.java
-│   └── service/                    # Servicios de aplicación
-│       └── PriceQueryService.java
-└── infrastructure/                  # Capa de Infraestructura
-    ├── adapter/
-    │   ├── in/rest/                # Adaptador REST (Controllers, DTOs)
-    │   │   ├── PriceController.java
-    │   │   ├── GlobalExceptionHandler.java
-    │   │   └── dto/
-    │   └── out/persistence/        # Adaptador de Persistencia (JPA)
-    │       ├── PriceEntity.java
-    │       ├── PriceMapper.java
-    │       ├── JpaPriceRepository.java
-    │       └── PriceRepositoryAdapter.java
-    └── config/                     # Configuración de Framework
-        ├── ApplicationConfig.java
-        ├── SecurityConfig.java
-        └── OpenApiConfig.java
-```
+## Requirements
 
-## 🚀 Stack Tecnológico
+- Any **JDK 17+** on the `PATH` (only to bootstrap Gradle).
+- The compile/run JDK (Temurin 21) is pinned by the **Gradle Java Toolchain** and
+  auto-provisioned by the foojay resolver — no manual JDK setup (ADR-0009).
 
-- **Java 21** (Virtual Threads habilitados)
-- **Spring Boot 3.4.0**
-- **Gradle 8.10** (Kotlin DSL)
-- **H2 Database** (In-Memory)
-- **Spring Security** (OAuth2 Resource Server con JWT)
-- **OpenAPI/Swagger** (Documentación interactiva)
-- **JUnit 5** (Testing)
+## Build & run
 
-## 📋 Requisitos Previos
-
-- **JDK 21 Embebida** (Eclipse Temurin) - Ver instrucciones de instalación abajo
-- **Gradle 8.10+** (incluido wrapper)
-
-### ⚙️ Configuración de JDK Embebida (Portable Build)
-
-Este proyecto utiliza una **JDK 21 embebida** para garantizar builds reproducibles y portables, independientes del JDK instalado en el sistema.
-
-**Pasos de configuración:**
-
-1. **Descargar Eclipse Temurin JDK 21 LTS** (formato ZIP):
-   - Windows: https://adoptium.net/temurin/releases/?version=21
-   - Seleccionar: `Windows x64 JDK .zip`
-
-2. **Extraer el contenido** en la raíz del proyecto:
-   ```
-   bcnc202604/
-   ├── jdk21/              ← Extraer aquí el contenido del ZIP
-   │   ├── bin/
-   │   ├── lib/
-   │   └── ...
-   ├── src/
-   ├── build.gradle.kts
-   └── ...
-   ```
-
-3. **Verificar la configuración**:
-   ```powershell
-   .\check-env.ps1
-   ```
-   
-   Este script verifica que Gradle esté usando la JDK embebida y no la del sistema.
-
-**¿Por qué JDK embebida?**
-- ✅ **Portabilidad**: El proyecto es autocontenido y no depende del PATH del sistema
-- ✅ **Reproducibilidad**: Todos los evaluadores usan exactamente la misma versión de JDK
-- ✅ **Aislamiento**: Evita conflictos con otras versiones de Java instaladas (ej: JDK 25)
-
-**Configuración técnica:**
-- `gradle.properties` → `org.gradle.java.home=./jdk21`
-- `build.gradle.kts` → Java Toolchain configurado para JDK 21 (Eclipse Temurin)
-
-## 🔧 Instalación y Ejecución
-
-### 1. Clonar el repositorio
 ```bash
-git clone <repository-url>
-cd bcnc202604
+./gradlew clean build      # compile + test
+./gradlew bootRun          # start on http://localhost:8080
 ```
 
-### 2. Compilar el proyecto
+With Docker:
+
 ```bash
-./gradlew clean build
+docker compose up --build
 ```
 
-### 3. Ejecutar la aplicación
+## API
+
+### `GET /api/v1/prices`
+
+| Parameter | Type | Example |
+|-----------|------|---------|
+| `applicationDate` | ISO-8601 local date-time | `2020-06-14T10:00:00` |
+| `productId` | positive integer | `35455` |
+| `brandId` | positive integer | `1` |
+
 ```bash
-./gradlew bootRun
-```
-
-La aplicación estará disponible en: `http://localhost:8080`
-
-## 📚 Documentación API
-
-Una vez iniciada la aplicación, accede a:
-
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
-- **OpenAPI Docs**: http://localhost:8080/api-docs
-- **H2 Console**: http://localhost:8080/h2-console
-
-### 📮 Colección de Postman
-
-Para facilitar las pruebas de la API, se incluye una colección de Postman con todos los endpoints configurados:
-
-**Ubicación:** `/resources/BCNC-202604.postman_collection.json`
-
-**Cómo importar:**
-1. Abre Postman
-2. Click en **Import** (esquina superior izquierda)
-3. Selecciona el archivo `resources/BCNC-202604.postman_collection.json`
-4. La colección incluye:
-   - **Auth**: Endpoint para generar tokens JWT
-   - **Prices**: Endpoint para consultar precios (con autenticación)
-
-**Flujo de uso:**
-1. Ejecuta la petición **Auth** para obtener un token JWT
-2. Copia el token de la respuesta
-3. Usa el token en la petición **Prices** (header `Authorization: Bearer <token>`)
-
-### Endpoint Principal
-
-**GET** `/api/v1/prices`
-
-**Parámetros:**
-- `applicationDate` (required): Fecha de aplicación en formato ISO-8601 (ej: `2020-06-14T10:00:00`)
-- `productId` (required): ID del producto (ej: `35455`)
-- `brandId` (required): ID de la cadena (ej: `1`)
-
-**Ejemplo de petición:**
-```bash
-curl -X GET "http://localhost:8080/api/v1/prices?applicationDate=2020-06-14T10:00:00&productId=35455&brandId=1" \
+curl "http://localhost:8080/api/v1/prices?applicationDate=2020-06-14T10:00:00&productId=35455&brandId=1" \
   -H "Authorization: Bearer <token>"
 ```
 
-**Respuesta exitosa (200):**
+**200** returns the applicable price:
+
 ```json
 {
   "productId": 35455,
@@ -163,130 +57,44 @@ curl -X GET "http://localhost:8080/api/v1/prices?applicationDate=2020-06-14T10:0
 }
 ```
 
-## 🧪 Testing
+When several rates overlap, the one with the **highest `priority`** wins, with a deterministic
+tie-break (ADR-0002, ADR-0003). No match returns **404** as an RFC 7807
+`application/problem+json` body (ADR-0007).
 
-El proyecto incluye tests de integración completos que cubren los 5 escenarios requeridos:
+Interactive docs once running: Swagger UI at `/swagger-ui.html`, OpenAPI at `/api-docs`.
+
+### Authentication (development only)
+
+The protected endpoint requires a JWT. This is an **optional dev-only** layer, not part of the
+exercise's scope (ADR-0008): `POST /auth/token` with `{"username":"..."}` issues an RSA-signed
+token valid for one hour, with no credential validation.
+
+## Data
+
+An in-memory H2 database is initialised on startup from `schema.sql` and `data.sql` with the
+four reference rows for product `35455`, brand `1`. The five mandated scenarios are covered by
+`PriceControllerIntegrationTest`.
+
+## Testing
 
 ```bash
 ./gradlew test
 ```
 
-### Escenarios de Test
+Includes domain unit tests, a `@DataJpaTest` persistence slice, end-to-end web tests (the five
+scenarios, the real JWT flow, validation and error bodies), a real-HTTP smoke test, a PostgreSQL
+**Testcontainers** showcase (skipped without Docker) and **ArchUnit** rules that enforce the
+hexagonal dependency boundary (ADR-0010). See [ARCHITECTURE.md §5](ARCHITECTURE.md#5-testing-strategy).
 
-1. **Test 1**: Petición a las 10:00 del día 14 → Tarifa 1 (35.50€)
-2. **Test 2**: Petición a las 16:00 del día 14 → Tarifa 2 (25.45€)
-3. **Test 3**: Petición a las 21:00 del día 14 → Tarifa 1 (35.50€)
-4. **Test 4**: Petición a las 10:00 del día 15 → Tarifa 3 (30.50€)
-5. **Test 5**: Petición a las 21:00 del día 16 → Tarifa 4 (38.95€)
+**CI:** GitHub Actions builds and tests on every push and validates the Helm chart
+(`.github/workflows/ci.yml`).
 
-## 🔐 Seguridad
+## Tech stack
 
-La aplicación implementa **Spring Security** como **Resource Server** con validación JWT:
+Java 21 (virtual threads) · Spring Boot 3.4 (Web, Data JPA, Validation, Security/OAuth2 Resource
+Server, Actuator) · H2 · springdoc-openapi · JUnit 5 / AssertJ / ArchUnit · Gradle (Kotlin DSL).
 
-- Los endpoints `/api/v1/prices/**` requieren autenticación JWT
-- Los endpoints de documentación (`/swagger-ui.html`, `/api-docs`) están públicos
-- Los endpoints de autenticación (`/auth/**`) están públicos
-- JWT decoder con clave RSA estática generada al inicio
+## Deployment
 
-### 🔑 Obtener un Token JWT
-
-Para acceder a los endpoints protegidos, primero debes obtener un token JWT:
-
-**Endpoint:** `POST /auth/token`
-
-**Request:**
-```bash
-curl -X POST "http://localhost:8080/auth/token" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "test-user"}'
-```
-
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcmljZXMtc2VydmljZSIsInN1YiI6InRlc3QtdXNlciIsImV4cCI6MTcxMjA2NDAwMCwiaWF0IjoxNzEyMDYwNDAwLCJzY29wZSI6InJlYWQgd3JpdGUifQ...",
-  "tokenType": "Bearer",
-  "expiresIn": 3600
-}
-```
-
-**Características del token:**
-- ✅ Válido por **1 hora** (3600 segundos)
-- ✅ Firmado con **RSA-256**
-- ✅ Contiene claims: `issuer`, `subject`, `scope`, `exp`, `iat`
-
-### 🔒 Usar el Token
-
-Una vez obtenido el token, inclúyelo en el header `Authorization` de tus peticiones:
-
-```bash
-curl -X GET "http://localhost:8080/api/v1/prices?applicationDate=2020-06-14T10:00:00&productId=35455&brandId=1" \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-### 📋 Flujo de Autenticación Completo
-
-```
-1. Cliente solicita token → POST /auth/token {"username": "test-user"}
-2. Servidor genera JWT firmado con clave privada RSA
-3. Cliente recibe token válido por 1 hora
-4. Cliente incluye token en header: Authorization: Bearer <token>
-5. Servidor valida token con clave pública RSA
-6. Si es válido, permite acceso al endpoint protegido
-```
-
-**Nota:** El token es generado automáticamente sin validación de credenciales (mock para desarrollo). En producción, este endpoint debería validar usuario/contraseña contra una base de datos o servicio de identidad.
-
-## 🐳 Docker
-
-### Construir imagen
-```bash
-docker build -t prices-service:latest .
-```
-
-### Ejecutar contenedor
-```bash
-docker run -p 8080:8080 prices-service:latest
-```
-
-### Docker Compose
-```bash
-docker-compose up
-```
-
-## ☸️ Kubernetes (Helm)
-
-Los Helm Charts están disponibles en la carpeta `/charts`:
-
-```bash
-helm install prices-service ./charts/prices-service
-```
-
-## 📊 Datos de Prueba
-
-La base de datos H2 se inicializa automáticamente con los siguientes datos:
-
-| BRAND_ID | START_DATE          | END_DATE            | PRICE_LIST | PRODUCT_ID | PRIORITY | PRICE | CURR |
-|----------|---------------------|---------------------|------------|------------|----------|-------|------|
-| 1        | 2020-06-14 00:00:00 | 2020-12-31 23:59:59 | 1          | 35455      | 0        | 35.50 | EUR  |
-| 1        | 2020-06-14 15:00:00 | 2020-06-14 18:30:00 | 2          | 35455      | 1        | 25.45 | EUR  |
-| 1        | 2020-06-15 00:00:00 | 2020-06-15 11:00:00 | 3          | 35455      | 1        | 30.50 | EUR  |
-| 1        | 2020-06-15 16:00:00 | 2020-12-31 23:59:59 | 4          | 35455      | 1        | 38.95 | EUR  |
-
-## 🎯 Lógica de Negocio
-
-- Si múltiples tarifas coinciden en un rango de fechas, se aplica la de **mayor prioridad** (valor numérico más alto)
-- El endpoint devuelve siempre un **único resultado**
-- Validación estricta de parámetros de entrada
-
-## 📝 Principios Aplicados
-
-- ✅ **SOLID**: Responsabilidad única, inversión de dependencias, segregación de interfaces
-- ✅ **Clean Code**: Código legible, nombres descriptivos, funciones pequeñas
-- ✅ **DRY**: Sin duplicación de lógica
-- ✅ **Hexagonal Architecture**: Desacoplamiento total entre capas
-- ✅ **Virtual Threads**: Optimización de rendimiento con Java 21
-
-## 📄 Licencia
-
-Este proyecto es una prueba técnica para BCNC.
+A multi-stage `Dockerfile` and `docker-compose.yml` are provided, plus Helm charts under
+`charts/prices-service` for Kubernetes.

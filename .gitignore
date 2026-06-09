@@ -58,3 +58,6 @@ logs/
 
 # Embedded JDK (portable build)
 jdk21/
+
+# Private selection-process material (CV, emails, evaluation criteria)
+resources/private/
