@@ -47,46 +47,19 @@ com.bcnc.prices/
 
 ## 📋 Requisitos Previos
 
-- **JDK 21 Embebida** (Eclipse Temurin) - Ver instrucciones de instalación abajo
+- **JDK 17 o superior** en el PATH (solo para arrancar Gradle)
 - **Gradle 8.10+** (incluido wrapper)
 
-### ⚙️ Configuración de JDK Embebida (Portable Build)
+### ⚙️ Versión de Java (Gradle Toolchains)
 
-Este proyecto utiliza una **JDK 21 embebida** para garantizar builds reproducibles y portables, independientes del JDK instalado en el sistema.
+La versión de Java con la que se **compila y ejecuta** la aplicación está fijada mediante el
+**Gradle Java Toolchain** (Eclipse Temurin 21) en `build.gradle.kts`, no por el JDK del sistema.
 
-**Pasos de configuración:**
+- Si tu máquina ya tiene un JDK 21 instalado, Gradle lo detecta y lo usa.
+- Si no, lo descarga automáticamente gracias al *foojay resolver* declarado en `settings.gradle.kts`.
 
-1. **Descargar Eclipse Temurin JDK 21 LTS** (formato ZIP):
-   - Windows: https://adoptium.net/temurin/releases/?version=21
-   - Seleccionar: `Windows x64 JDK .zip`
-
-2. **Extraer el contenido** en la raíz del proyecto:
-   ```
-   bcnc202604/
-   ├── jdk21/              ← Extraer aquí el contenido del ZIP
-   │   ├── bin/
-   │   ├── lib/
-   │   └── ...
-   ├── src/
-   ├── build.gradle.kts
-   └── ...
-   ```
-
-3. **Verificar la configuración**:
-   ```powershell
-   .\check-env.ps1
-   ```
-   
-   Este script verifica que Gradle esté usando la JDK embebida y no la del sistema.
-
-**¿Por qué JDK embebida?**
-- ✅ **Portabilidad**: El proyecto es autocontenido y no depende del PATH del sistema
-- ✅ **Reproducibilidad**: Todos los evaluadores usan exactamente la misma versión de JDK
-- ✅ **Aislamiento**: Evita conflictos con otras versiones de Java instaladas (ej: JDK 25)
-
-**Configuración técnica:**
-- `gradle.properties` → `org.gradle.java.home=./jdk21`
-- `build.gradle.kts` → Java Toolchain configurado para JDK 21 (Eclipse Temurin)
+De este modo no hay que instalar ni extraer ningún JDK manualmente: basta con cualquier JDK 17+
+en el PATH para lanzar el wrapper de Gradle.
 
 ## 🔧 Instalación y Ejecución
 
