@@ -146,7 +146,15 @@ exception → RFC 7807 `404` (ADR-0007).
 - **End-to-end web tests** (`PriceControllerIntegrationTest`) — the five mandated scenarios as a
   parameterised test, the real JWT auth flow, validation and RFC 7807 error bodies; monetary
   values asserted as `BigDecimal`.
+- **Smoke test** (`ApplicationSmokeTest`) — boots the app on a random port and exercises the real
+  HTTP stack (actuator health + the protected endpoint with a real token).
+- **Production-fidelity showcase** (`PostgresPriceRepositoryShowcaseTest`) — runs the query against
+  a real PostgreSQL via Testcontainers; skipped where Docker is absent, so the H2 suite the
+  statement requires is unaffected.
 - **Architecture tests** (`HexagonalArchitectureTest`, ArchUnit) — the dependency rule.
+
+CI (GitHub Actions) runs the full build/test on every push (Docker is available there, so the
+Testcontainers showcase executes) and validates the Helm chart with `helm lint`/`template`.
 
 ## 6. Roadmap (what I would do next)
 

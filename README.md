@@ -1,5 +1,7 @@
 # Prices Service
 
+[![CI](https://github.com/abelmunozal/bcnc202604/actions/workflows/ci.yml/badge.svg)](https://github.com/abelmunozal/bcnc202604/actions/workflows/ci.yml)
+
 A REST microservice (Spring Boot 3.4 / Java 21) that returns the **applicable price** of a
 product for a brand at a given instant. Built with **Domain-Driven Design** and a **Hexagonal
 (Ports & Adapters)** architecture.
@@ -80,8 +82,12 @@ four reference rows for product `35455`, brand `1`. The five mandated scenarios 
 ```
 
 Includes domain unit tests, a `@DataJpaTest` persistence slice, end-to-end web tests (the five
-scenarios, the real JWT flow, validation and error bodies) and **ArchUnit** rules that enforce
-the hexagonal dependency boundary (ADR-0010). See [ARCHITECTURE.md §5](ARCHITECTURE.md#5-testing-strategy).
+scenarios, the real JWT flow, validation and error bodies), a real-HTTP smoke test, a PostgreSQL
+**Testcontainers** showcase (skipped without Docker) and **ArchUnit** rules that enforce the
+hexagonal dependency boundary (ADR-0010). See [ARCHITECTURE.md §5](ARCHITECTURE.md#5-testing-strategy).
+
+**CI:** GitHub Actions builds and tests on every push and validates the Helm chart
+(`.github/workflows/ci.yml`).
 
 ## Tech stack
 
